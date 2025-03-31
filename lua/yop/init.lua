@@ -35,7 +35,12 @@ local function get_line_from_type(callback_type, first_position, last_position)
 end
 
 local set_lines = function(start, stop, lines)
-	vim.api.nvim_buf_set_lines(0, start - 1, stop, false, lines)
+	for index, line in ipairs(lines) do
+		lines[index] = vim.split(line, "\n", { plain = true, trimempty = true })
+	end
+
+	local split_lines = vim.iter(lines):flatten():totable()
+	vim.api.nvim_buf_set_lines(0, start - 1, stop, false, split_lines)
 end
 
 local function get_positions()
@@ -78,6 +83,12 @@ local function create_opfunc(funk)
 		if callback_type == "line" then
 			set_lines(first_position[1], last_position[1], lines)
 		elseif callback_type == "char" then
+            for index, line in ipairs(lines) do
+                lines[index] = vim.split(line, "\n", { plain = true, trimempty = true })
+            end
+
+            local split_lines = vim.iter(lines):flatten():totable()
+
 			-- Replace the lines in the correct buffer
 			vim.api.nvim_buf_set_text(
 				0,
@@ -85,7 +96,7 @@ local function create_opfunc(funk)
 				first_position[2] - 1,
 				last_position[1] - 1,
 				last_position[2],
-				lines
+				split_lines
 			)
 		elseif callback_type == "block" then
 			local old_a_reg = vim.fn.getreg("a")
