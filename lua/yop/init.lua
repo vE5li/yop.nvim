@@ -35,7 +35,12 @@ local function get_line_from_type(callback_type, first_position, last_position)
 end
 
 local set_lines = function(start, stop, lines)
-	vim.api.nvim_buf_set_lines(0, start - 1, stop, false, lines)
+	for index, line in ipairs(lines) do
+		lines[index] = vim.split(line, "\n", { plain = true, trimempty = true })
+	end
+
+	local split_lines = vim.iter(lines):flatten():totable()
+	vim.api.nvim_buf_set_lines(0, start - 1, stop, false, split_lines)
 end
 
 local function get_positions()
