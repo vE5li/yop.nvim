@@ -1,5 +1,8 @@
 local utils = require("yop.utils")
 
+local namespace = vim.api.nvim_create_namespace('yop')
+local extmark_id = 334934
+
 local Module = {
     config = {
         debug_level = 0,
@@ -50,7 +53,7 @@ local function get_positions()
     return utils.get_mark("["), utils.get_mark("]")
 end
 
-local function create_opfunc(funk)
+local function create_opfunc(funk, assassinate)
     debug("4: opfunc being created and set")
     return function(callback_type)
         debug("5: opfunc called")
@@ -107,6 +110,11 @@ local function create_opfunc(funk)
             vim.fn.setreg("a", old_a_reg, "b")
         end
 
+        if assassinate then
+            local extmark_position = vim.api.nvim_buf_get_extmark_by_id(0, namespace, extmark_id, {})
+            vim.api.nvim_win_set_cursor(0, { extmark_position[1] + 1, extmark_position[2] })
+        end
+
         debug("9: lines have been sent")
     end
 end
@@ -116,7 +124,7 @@ function Module.setup(config)
     Module.config = vim.tbl_deep_extend("force", Module.config, config)
 end
 
-function Module.create_operator(funk, linewise)
+function Module.create_operator(funk, linewise, assassinate)
     local prefix = ""
     local postfix = ""
 
@@ -129,8 +137,18 @@ function Module.create_operator(funk, linewise)
     return function()
         debug("3: actual mapping called")
         -- local old_op_func = vim.go.operatorfunc
-        Module.__opfunc = create_opfunc(funk)
+        Module.__opfunc = create_opfunc(funk, assassinate)
         vim.go.operatorfunc = "v:lua.require'yop'.__opfunc"
+
+        local cursor_position = vim.api.nvim_win_get_cursor(0)
+
+        if assassinate then
+            vim.api.nvim_buf_set_extmark(0, namespace, cursor_position[1] - 1, cursor_position[2],
+                {
+                    id = extmark_id,
+                    strict = false
+                });
+        end
 
         -- Other plugins have this as a string being returned, and then the mapping
         -- has to be an expression. I don't understand why.
@@ -156,11 +174,13 @@ function Module.op_map(mode, mapping, funk, opts)
         opts = { opts, "table" },
     })
     local linewise = opts.linewise or false
+    local assassinate = opts.assassinate or false
     opts["linewise"] = nil
+    opts["assassinate"] = nil
 
     opts = vim.tbl_deep_extend("force", opts, { expr = true })
 
-    vim.keymap.set(mode, mapping, Module.create_operator(funk, linewise), opts)
+    vim.keymap.set(mode, mapping, Module.create_operator(funk, linewise, assassinate), opts)
 end
 
 return Module
